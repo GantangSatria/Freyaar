@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import re
+import os
 import nltk
-from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -13,19 +13,31 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 st.set_page_config(page_title="QA System with RAG", layout="wide")
 st.title("📚 QA System dengan RAG (TF-IDF + T5)")
 
-# --- LOAD RESOURCES ---
+# --- SETUP NLTK ---
 @st.cache_resource
 def load_nltk_resources():
-    nltk.download('punkt', quiet=True)
-    nltk.download('stopwords', quiet=True)
-    nltk.download('wordnet', quiet=True)
+    nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
+    nltk.data.path.append(nltk_data_path)
 
+    if not os.path.exists(nltk_data_path):
+        os.makedirs(nltk_data_path)
+
+    nltk.download('punkt', download_dir=nltk_data_path, quiet=True)
+    nltk.download('stopwords', download_dir=nltk_data_path, quiet=True)
+    nltk.download('wordnet', download_dir=nltk_data_path, quiet=True)
+
+load_nltk_resources()
+
+from nltk.tokenize import word_tokenize, sent_tokenize
+
+# --- LOAD MODEL T5 ---
 @st.cache_resource
 def load_model():
     tokenizer = T5Tokenizer.from_pretrained("t5-small")
     model = T5ForConditionalGeneration.from_pretrained("t5-small")
     return tokenizer, model
 
+# --- LOAD DATASET ---
 @st.cache_data
 def load_data():
     df = pd.read_csv("arxiv_ml.csv")
@@ -33,18 +45,20 @@ def load_data():
         st.error("Dataset tidak memiliki kolom 'abstract'.")
         st.stop()
     
-    df = df.sample(min(1000, len(df)), random_state=42)  # Ambil sample jika dataset besar
+    df = df.sample(min(1000, len(df)), random_state=42)  # Ambil sampel jika dataset besar
     return df
+
+df = load_data()
 
 # --- PREPROCESSING FUNCTION ---
 def preprocess_text(text):
     text = text.lower()
-    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)  # Hapus karakter khusus
     tokens = word_tokenize(text)
-    
+
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
-    
+
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
     return " ".join(tokens)
 
@@ -52,11 +66,7 @@ def chunk_abstract(abstract, chunk_size=3):
     sentences = sent_tokenize(abstract)
     return [" ".join(sentences[i:i + chunk_size]) for i in range(0, len(sentences), chunk_size)]
 
-# --- LOAD DATASET ---
-load_nltk_resources()
-df = load_data()
-
-# Caching hasil preprocessing agar tidak lambat
+# --- CACHING PREPROCESSING ---
 @st.cache_data
 def preprocess_dataset(df):
     df["processed_abstract"] = df["abstract"].apply(preprocess_text)
@@ -74,7 +84,6 @@ def retrieve_top_k(query, tfidf_matrix, vectorizer, df, k=5):
     scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_indices = scores.argsort()[-k:][::-1]
     
-    # Pastikan tidak error jika tidak ada hasil
     if len(top_indices) == 0:
         return None
     
