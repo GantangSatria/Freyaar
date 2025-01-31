@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import re
-import os
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -16,15 +15,17 @@ st.title("📚 QA System dengan RAG (TF-IDF + T5)")
 # --- SETUP NLTK ---
 @st.cache_resource
 def load_nltk_resources():
-    nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
-    nltk.data.path.append(nltk_data_path)
+    # Download necessary NLTK data
+    nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
+    nltk.download('wordnet', quiet=True)
 
-    if not os.path.exists(nltk_data_path):
-        os.makedirs(nltk_data_path)
-
-    nltk.download('punkt', download_dir=nltk_data_path, quiet=True)
-    nltk.download('stopwords', download_dir=nltk_data_path, quiet=True)
-    nltk.download('wordnet', download_dir=nltk_data_path, quiet=True)
+    # Verify that the data is available
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        st.error("NLTK data not found. Please ensure the data is downloaded correctly.")
+        st.stop()
 
 load_nltk_resources()
 
@@ -118,5 +119,5 @@ if question:
             for i, context in enumerate(retrieved_docs["chunks"].values, 1):
                 st.info(f"**Dokumen {i}:** {' '.join(context[:2])}...")  # Tampilkan cuplikan
 
-            st.write("### ✅ Jawaban:")
+            st.write("✅ Jawaban:")
             st.success(answer)
