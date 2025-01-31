@@ -11,7 +11,6 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 # --- STREAMLIT CONFIG ---
 st.set_page_config(page_title="QA System with RAG", layout="wide")
-
 st.title("📚 QA System dengan RAG (TF-IDF + T5)")
 
 # --- LOAD RESOURCES ---
@@ -33,7 +32,8 @@ def load_data():
     if "abstract" not in df.columns:
         st.error("Dataset tidak memiliki kolom 'abstract'.")
         st.stop()
-    df = df.sample(1000, random_state=42) if len(df) > 1000 else df
+    
+    df = df.sample(min(1000, len(df)), random_state=42)  # Ambil sample jika dataset besar
     return df
 
 # --- PREPROCESSING FUNCTION ---
@@ -41,8 +41,10 @@ def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
     tokens = word_tokenize(text)
+    
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
+    
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
     return " ".join(tokens)
 
@@ -53,8 +55,15 @@ def chunk_abstract(abstract, chunk_size=3):
 # --- LOAD DATASET ---
 load_nltk_resources()
 df = load_data()
-df["processed_abstract"] = df["abstract"].apply(preprocess_text)
-df["chunks"] = df["abstract"].apply(chunk_abstract)
+
+# Caching hasil preprocessing agar tidak lambat
+@st.cache_data
+def preprocess_dataset(df):
+    df["processed_abstract"] = df["abstract"].apply(preprocess_text)
+    df["chunks"] = df["abstract"].apply(chunk_abstract)
+    return df
+
+df = preprocess_dataset(df)
 
 # --- TF-IDF RETRIEVAL ---
 vectorizer = TfidfVectorizer()
@@ -64,12 +73,20 @@ def retrieve_top_k(query, tfidf_matrix, vectorizer, df, k=5):
     query_vec = vectorizer.transform([query])
     scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_indices = scores.argsort()[-k:][::-1]
+    
+    # Pastikan tidak error jika tidak ada hasil
+    if len(top_indices) == 0:
+        return None
+    
     return df.iloc[top_indices]
 
 # --- LOAD T5 MODEL ---
 tokenizer, model = load_model()
 
 def generate_answer(question, df):
+    if df is None or df.empty:
+        return "Maaf, saya tidak menemukan jawaban untuk pertanyaan Anda."
+
     combined_context = " ".join(df["chunks"].sum())
     input_text = f"question: {question} context: {combined_context}"
     input_ids = tokenizer.encode(input_text, return_tensors="pt", truncation=True, max_length=512)
@@ -82,11 +99,15 @@ question = st.text_input("❓ Masukkan pertanyaan Anda tentang Machine Learning:
 if question:
     with st.spinner("🔍 Mencari jawaban..."):
         retrieved_docs = retrieve_top_k(question, tfidf_matrix, vectorizer, df, k=5)
-        answer = generate_answer(question, retrieved_docs)
-    
-    st.write("### 🔎 Konteks yang ditemukan:")
-    for i, context in enumerate(retrieved_docs["chunks"].values, 1):
-        st.info(f"**Dokumen {i}:** {' '.join(context[:2])}...")  # Tampilkan cuplikan
+        
+        if retrieved_docs is None or retrieved_docs.empty:
+            st.error("❌ Tidak ditemukan konteks yang relevan.")
+        else:
+            answer = generate_answer(question, retrieved_docs)
 
-    st.write("### ✅ Jawaban:")
-    st.success(answer)
+            st.write("### 🔎 Konteks yang ditemukan:")
+            for i, context in enumerate(retrieved_docs["chunks"].values, 1):
+                st.info(f"**Dokumen {i}:** {' '.join(context[:2])}...")  # Tampilkan cuplikan
+
+            st.write("### ✅ Jawaban:")
+            st.success(answer)
