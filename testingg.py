@@ -74,6 +74,7 @@ def load_models():
         answer_model = T5ForConditionalGeneration.from_pretrained("t5-small")
     except ImportError as e:
         st.error(f"Failed to load T5 model: {e}")
+        st.error("Please ensure that the 'sentencepiece' library is installed.")
         raise e
     
     return embedding_model, tokenizer, answer_model
