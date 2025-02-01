@@ -1,6 +1,8 @@
 streamlit
-torch
 pandas
-scikit-learn
-transformers
 nltk
+faiss-cpu
+numpy
+torch
+sentence-transformers
+transformers
