@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import nltk
+import os
 import faiss
 import numpy as np
 import torch
@@ -14,11 +15,16 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 # Set page config
 st.set_page_config(page_title="ML QA System", layout="wide")
 
+nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
+os.makedirs(nltk_data_path, exist_ok=True)
+nltk.data.path.append(nltk_data_path)
+
 # Download NLTK resources
-nltk.download('punkt', quiet=True)
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
-nltk.download('omw-1.4', quiet=True)
+nltk.download('punkt', quiet=True, download_dir=nltk_data_path)
+nltk.download('stopwords', quiet=True, download_dir=nltk_data_path)
+nltk.download('wordnet', quiet=True, download_dir=nltk_data_path)
+nltk.download('omw-1.4', quiet=True, download_dir=nltk_data_path)
+nltk.download('punkt_tab', quiet=True, download_dir=nltk_data_path)
 
 @st.cache_data
 def load_data():
