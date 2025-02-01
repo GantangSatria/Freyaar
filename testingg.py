@@ -29,8 +29,17 @@ def load_data():
 
 @st.cache_data
 def preprocess_data(df):
+    # Ensure the 'abstract' column exists and handle missing values
+    if 'abstract' not in df.columns:
+        raise ValueError("The 'abstract' column is missing in the dataset.")
+    
+    # Fill NaN values with empty strings
+    df['abstract'] = df['abstract'].fillna('')
+
     # Preprocessing function
     def preprocess_text(text):
+        if not isinstance(text, str):  # Ensure the input is a string
+            return ""
         text = text.lower()
         text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
         tokens = word_tokenize(text)
@@ -39,7 +48,10 @@ def preprocess_data(df):
         tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
         return " ".join(tokens)
     
+    # Apply preprocessing
     df["processed_abstract"] = df["abstract"].apply(preprocess_text)
+    
+    # Chunking
     df["chunks"] = df["abstract"].apply(lambda x: [" ".join(sent_tokenize(x)[i:i+3]) for i in range(0, len(sent_tokenize(x)), 3)])
     return df
 
