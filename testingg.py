@@ -79,10 +79,15 @@ def load_models():
     
     return embedding_model, tokenizer, answer_model
 
-def create_faiss_index(df, embedding_model):
-    embeddings = embedding_model.encode(df["processed_abstract"].tolist(), convert_to_tensor=False)
-    embeddings = np.array(embeddings, dtype=np.float32)
-    index = faiss.IndexFlatL2(embedding_model.get_sentence_embedding_dimension())
+@st.cache_resource(allow_output_mutation=True)
+def create_faiss_index(embeddings, embedding_dim):
+    """
+    Create a FAISS index from precomputed embeddings.
+    Args:
+        embeddings: A NumPy array of precomputed embeddings.
+        embedding_dim: The dimension of the embeddings.
+    """
+    index = faiss.IndexFlatL2(embedding_dim)
     index.add(embeddings)
     return index
 
