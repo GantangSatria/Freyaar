@@ -79,7 +79,6 @@ def load_models():
     
     return embedding_model, tokenizer, answer_model
 
-@st.cache_resource
 def create_faiss_index(df, embedding_model):
     embeddings = embedding_model.encode(df["processed_abstract"].tolist(), convert_to_tensor=False)
     embeddings = np.array(embeddings, dtype=np.float32)
