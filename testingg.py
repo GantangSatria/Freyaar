@@ -64,9 +64,18 @@ def preprocess_data(df):
 @st.cache_resource
 def load_models():
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    # Load embedding model
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device)
-    tokenizer = T5Tokenizer.from_pretrained("t5-small")
-    answer_model = T5ForConditionalGeneration.from_pretrained("t5-small")
+    
+    # Load T5 tokenizer and model
+    try:
+        tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        answer_model = T5ForConditionalGeneration.from_pretrained("t5-small")
+    except ImportError as e:
+        st.error(f"Failed to load T5 model: {e}")
+        raise e
+    
     return embedding_model, tokenizer, answer_model
 
 @st.cache_resource

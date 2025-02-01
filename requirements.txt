@@ -3,6 +3,6 @@ pandas
 nltk
 faiss-cpu
 numpy
-torch
-sentence-transformers
-transformers
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.2
