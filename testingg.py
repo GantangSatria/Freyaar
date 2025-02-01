@@ -15,6 +15,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 # Set page config
 st.set_page_config(page_title="ML QA System", layout="wide")
 
+# Ensure NLTK data is downloaded
 nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(nltk_data_path, exist_ok=True)
 nltk.data.path.append(nltk_data_path)
@@ -79,7 +80,7 @@ def load_models():
     
     return embedding_model, tokenizer, answer_model
 
-@st.cache_resource(allow_output_mutation=True)
+@st.cache_resource
 def create_faiss_index(embeddings, embedding_dim):
     """
     Create a FAISS index from precomputed embeddings.
@@ -95,7 +96,12 @@ def create_faiss_index(embeddings, embedding_dim):
 df = load_data()
 df = preprocess_data(df)
 embedding_model, tokenizer, answer_model = load_models()
-index = create_faiss_index(df, embedding_model)
+
+# Precompute embeddings and create FAISS index
+embeddings = embedding_model.encode(df["processed_abstract"].tolist(), convert_to_tensor=False)
+embeddings = np.array(embeddings, dtype=np.float32)
+embedding_dim = embedding_model.get_sentence_embedding_dimension()
+index = create_faiss_index(embeddings, embedding_dim)
 
 # Ground truth data
 ground_truth = {
